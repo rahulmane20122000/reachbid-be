@@ -8,6 +8,7 @@ import bidsRoute from './routes/bids';
 import webhooksRoute from './routes/webhooks';
 import clickRoute from './routes/click';
 import visitorsRoute from './routes/visitors';
+import paymentsRoute from './routes/payments';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -46,5 +47,6 @@ app.route('/api', bidsRoute);
 app.route('/api', webhooksRoute);
 app.route('/api', clickRoute);
 app.route('/api', visitorsRoute);
+app.route('/api', paymentsRoute);
 
 export default app;

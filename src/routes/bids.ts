@@ -71,7 +71,7 @@ bidsRoute.post('/bids/outbid', rateLimiterMiddleware(20, 60), async (c) => {
 
 /**
  * POST /api/bids/create-order
- * Generates Razorpay payment order payload for outbid payment processing
+ * Calls official Razorpay Orders API (https://api.razorpay.com/v1/orders) with hard-verified test credentials
  */
 bidsRoute.post('/bids/create-order', rateLimiterMiddleware(15, 60), async (c) => {
   const body: any = await c.req.json();
@@ -81,15 +81,56 @@ bidsRoute.post('/bids/create-order', rateLimiterMiddleware(15, 60), async (c) =>
     return c.json({ success: false, error: 'Outbid amount must be at least ₹10.' }, 400);
   }
 
-  const orderId = 'order_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
+  const keyId = c.env.RAZORPAY_KEY_ID || 'rzp_test_TTckTI7PPdV4Ga';
+  const keySecret = c.env.RAZORPAY_KEY_SECRET || 'xSjcSt0K8W2XSXwrocBBmVfl';
+  const amountInPaise = Math.round(amount * 100);
+  const receiptId = 'rec_' + Date.now().toString(36);
 
-  return c.json({
-    success: true,
-    orderId,
-    amount: Math.round(amount * 100),
-    currency: 'INR',
-    keyId: c.env.RAZORPAY_KEY_ID || 'rzp_test_reachbid_demo',
-  });
+  try {
+    const authHeader = 'Basic ' + btoa(`${keyId}:${keySecret}`);
+    const razorpayRes = await fetch('https://api.razorpay.com/v1/orders', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': authHeader,
+      },
+      body: JSON.stringify({
+        amount: amountInPaise,
+        currency: 'INR',
+        receipt: receiptId,
+      }),
+    });
+
+    const resText = await razorpayRes.text();
+    let orderData: any = {};
+    try {
+      orderData = JSON.parse(resText);
+    } catch {
+      // Ignore parse error
+    }
+
+    if (!razorpayRes.ok || !orderData.id) {
+      console.error('Razorpay order creation error:', razorpayRes.status, resText);
+      return c.json({
+        success: false,
+        error: orderData?.error?.description || `Razorpay order creation failed (${razorpayRes.status})`,
+      }, 400);
+    }
+
+    return c.json({
+      success: true,
+      orderId: orderData.id,
+      amount: orderData.amount,
+      currency: orderData.currency,
+      keyId,
+    });
+  } catch (err: any) {
+    console.error('Razorpay API exception:', err);
+    return c.json({
+      success: false,
+      error: err.message || 'Failed to connect to Razorpay payment server',
+    }, 500);
+  }
 });
 
 export default bidsRoute;
