@@ -7,7 +7,7 @@ const companiesRoute = new Hono<{ Bindings: Env }>();
 
 /**
  * POST /api/companies
- * Registers a new company listing in Cloudflare D1 with strict sanitization & rate limiting
+ * Registers a new company listing in Cloudflare D1 with strict sanitization, rate limiting, and bid validation
  */
 companiesRoute.post('/companies', rateLimiterMiddleware(10, 60), async (c) => {
   const body: any = await c.req.json();
@@ -23,8 +23,19 @@ companiesRoute.post('/companies', rateLimiterMiddleware(10, 60), async (c) => {
   const id = 'c_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
   const initialBid = Number(body.initial_bid) || 0;
 
-  if (initialBid < 99) {
-    return c.json({ success: false, error: 'Initial bid amount must be at least ₹99.' }, 400);
+  // 1. Fetch current top bid from D1 database
+  const topBidRes = await c.env.DB.prepare('SELECT MAX(current_bid) as maxBid FROM companies').first<{ maxBid: number }>();
+  const currentTopBid = topBidRes?.maxBid || 0;
+
+  const minRequiredBid = currentTopBid === 0 ? 99 : currentTopBid + 1;
+
+  if (initialBid < minRequiredBid) {
+    return c.json({
+      success: false,
+      error: currentTopBid === 0
+        ? 'Initial bid amount must be at least ₹99.'
+        : `Initial bid must be strictly greater than current top bid (₹${currentTopBid.toLocaleString('en-IN')}).`,
+    }, 400);
   }
 
   // Derive official 128px high-res favicon logo URL from website domain
