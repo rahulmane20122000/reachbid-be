@@ -1,0 +1,7 @@
+node_modules
+.env
+.wrangler
+.dev.vars
+.vscode
+.idea
+*.log

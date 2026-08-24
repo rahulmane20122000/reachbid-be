@@ -1,0 +1,21 @@
+{
+  "name": "reachbid-be",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Secure Hono Cloudflare Worker & D1 Backend for ReachBid.lol",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "d1:create": "wrangler d1 create reachbid-db",
+    "d1:migrate:local": "wrangler d1 execute reachbid-db --local --file=migrations/0001_initial.sql",
+    "d1:migrate:prod": "wrangler d1 execute reachbid-db --remote --file=migrations/0001_initial.sql"
+  },
+  "dependencies": {
+    "hono": "^4.7.4"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260823.1",
+    "typescript": "^5.0.0",
+    "wrangler": "^4.125.0"
+  }
+}

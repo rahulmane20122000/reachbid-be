@@ -1,0 +1,29 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "reachbid-be",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-24",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Cloudflare D1 SQL Database Binding
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "reachbid-db",
+      "database_id": "reachbid-d1-prod"
+    }
+  ],
+
+  // Cloudflare R2 Bucket Binding for Company Logo Storage
+  "r2_buckets": [
+    {
+      "binding": "LOGO_BUCKET",
+      "bucket_name": "reachbid-logos"
+    }
+  ],
+
+  // Environment Variables & Secrets
+  "vars": {
+    "ENVIRONMENT": "production"
+  }
+}
