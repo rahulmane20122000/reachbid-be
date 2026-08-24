@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS categories (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Seed Categories into D1 Database
+-- Seed All Comprehensive Industry Categories into D1 Database
 INSERT OR IGNORE INTO categories (id, name, slug, display_order) VALUES
 ('cat_1', 'AI', 'ai', 1),
 ('cat_2', 'SaaS', 'saas', 2),
@@ -82,4 +82,21 @@ INSERT OR IGNORE INTO categories (id, name, slug, display_order) VALUES
 ('cat_6', 'FinTech', 'fintech', 6),
 ('cat_7', 'EdTech', 'edtech', 7),
 ('cat_8', 'Web3', 'web3', 8),
-('cat_9', 'HealthTech', 'healthtech', 9);
+('cat_9', 'HealthTech', 'healthtech', 9),
+('cat_10', 'E-Commerce', 'e-commerce', 10),
+('cat_11', 'Cybersecurity', 'cybersecurity', 11),
+('cat_12', 'DevOps & Infra', 'devops-infra', 12),
+('cat_13', 'Data & Analytics', 'data-analytics', 13),
+('cat_14', 'Design & Creative', 'design-creative', 14),
+('cat_15', 'Marketing & SEO', 'marketing-seo', 15),
+('cat_16', 'Productivity', 'productivity', 16),
+('cat_17', 'ClimateTech', 'climatetech', 17),
+('cat_18', 'Gaming', 'gaming', 18),
+('cat_19', 'Logistics', 'logistics', 19),
+('cat_20', 'Mobile Apps', 'mobile-apps', 20),
+('cat_21', 'No-Code & Automation', 'no-code-automation', 21),
+('cat_22', 'Hardware & IoT', 'hardware-iot', 22),
+('cat_23', 'Community & Social', 'community-social', 23),
+('cat_24', 'LegalTech', 'legaltech', 24),
+('cat_25', 'PropTech', 'proptech', 25),
+('cat_26', 'Other', 'other', 26);
