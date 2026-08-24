@@ -38,6 +38,16 @@ companiesRoute.post('/companies', rateLimiterMiddleware(10, 60), async (c) => {
     }
   }
 
+  // Insert category into D1 categories master table if it does not already exist
+  const catId = 'cat_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5);
+  const catSlug = category.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  await c.env.DB.prepare('INSERT OR IGNORE INTO categories (id, name, slug, display_order) VALUES (?, ?, ?, 99)').bind(
+    catId,
+    category,
+    catSlug
+  ).run();
+
+  // Insert company record
   await c.env.DB.prepare(`
     INSERT INTO companies (id, name, tagline, category, website_url, linkedin_url, instagram_url, current_bid, is_new, clicks)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0)

@@ -1,5 +1,5 @@
 -- Migration: 0001_initial.sql
--- Cloudflare D1 / SQLite Schema for ReachBid.lol Backend (Clean Database)
+-- Cloudflare D1 / SQLite Schema for ReachBid.lol Backend
 
 CREATE TABLE IF NOT EXISTS companies (
     id TEXT PRIMARY KEY,
@@ -43,3 +43,43 @@ CREATE TABLE IF NOT EXISTS activity_logs (
     event_type TEXT DEFAULT 'outbid',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Visitor Analytics Table: stores IP, User Agent, Device Type, Browser, OS, Country, and Timestamps
+CREATE TABLE IF NOT EXISTS page_views (
+    id TEXT PRIMARY KEY,
+    ip_address TEXT,
+    ip_hash TEXT NOT NULL,
+    user_agent TEXT,
+    device_type TEXT DEFAULT 'Desktop',
+    browser TEXT DEFAULT 'Unknown',
+    os TEXT DEFAULT 'Unknown',
+    country TEXT DEFAULT 'US',
+    city TEXT,
+    referrer TEXT,
+    page_url TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_page_views_created_at ON page_views(created_at);
+CREATE INDEX IF NOT EXISTS idx_page_views_ip_hash ON page_views(ip_hash);
+
+-- Categories Table: Dedicated Cloudflare D1 master table for category management
+CREATE TABLE IF NOT EXISTS categories (
+    id TEXT PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL,
+    slug TEXT UNIQUE NOT NULL,
+    display_order INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Seed Categories into D1 Database
+INSERT OR IGNORE INTO categories (id, name, slug, display_order) VALUES
+('cat_1', 'AI', 'ai', 1),
+('cat_2', 'SaaS', 'saas', 2),
+('cat_3', 'Developer Tools', 'developer-tools', 3),
+('cat_4', 'Hiring', 'hiring', 4),
+('cat_5', 'Quick Commerce', 'quick-commerce', 5),
+('cat_6', 'FinTech', 'fintech', 6),
+('cat_7', 'EdTech', 'edtech', 7),
+('cat_8', 'Web3', 'web3', 8),
+('cat_9', 'HealthTech', 'healthtech', 9);
