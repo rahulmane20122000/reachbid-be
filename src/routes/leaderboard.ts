@@ -50,8 +50,7 @@ leaderboardRoute.get('/categories', async (c) => {
 
 /**
  * GET /api/leaderboard
- * Fetches company rankings with full pagination (page, limit), multi-parameter filtering (category, search),
- * sorting (bid, clicks, newest), live visitor metrics, dynamic categories, and stats.
+ * Fetches company rankings with full pagination, multi-parameter filtering, and 30-minute dynamic 'New' tag expiration
  */
 leaderboardRoute.get('/leaderboard', async (c) => {
   // Query Parameters
@@ -98,11 +97,25 @@ leaderboardRoute.get('/leaderboard', async (c) => {
   const dataStmt = c.env.DB.prepare(dataSql).bind(...params, limit, offset);
   const { results } = await dataStmt.all<CompanyRow>();
 
-  // Dynamically resolve high-res company logo URLs
-  const companies = (results || []).map((company) => ({
-    ...company,
-    logo_url: deriveLogoUrl(company.website_url, company.logo_url),
-  }));
+  const nowMs = Date.now();
+
+  // Dynamically resolve high-res company logo URLs and 30-minute 'New' tag expiration logic
+  const companies = (results || []).map((company, index) => {
+    const overallRank = offset + index + 1;
+    const createdAtMs = company.created_at ? new Date(company.created_at).getTime() : 0;
+    const ageInMinutes = createdAtMs > 0 ? (nowMs - createdAtMs) / (1000 * 60) : 999;
+    const isWithin30Min = ageInMinutes >= 0 && ageInMinutes <= 30;
+
+    // Rank #1 (overallRank === 1) keeps 'New' tag if created recently or marked is_new.
+    // Rank #2+ ONLY shows 'New' tag if created within the last 30 minutes (ageInMinutes <= 30).
+    const showNewTag = (overallRank === 1 && (company.is_new === 1 || isWithin30Min)) || isWithin30Min;
+
+    return {
+      ...company,
+      is_new: showNewTag ? 1 : 0,
+      logo_url: deriveLogoUrl(company.website_url, company.logo_url),
+    };
+  });
 
   const totalPages = Math.ceil(totalFilteredCompanies / limit) || 1;
 
