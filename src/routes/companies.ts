@@ -23,19 +23,8 @@ companiesRoute.post('/companies', rateLimiterMiddleware(10, 60), async (c) => {
   const id = 'c_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
   const initialBid = Number(body.initial_bid) || 0;
 
-  // Dynamic min initial bid check based on highest current bid
-  const maxBidRes = await c.env.DB.prepare('SELECT MAX(current_bid) as maxBid FROM companies').first<{ maxBid: number | null }>();
-  const maxBid = maxBidRes?.maxBid || 0;
-
-  if (maxBid === 0) {
-    if (initialBid < 99) {
-      return c.json({ success: false, error: 'Initial bid must be at least ₹99 for the first company listing.' }, 400);
-    }
-  } else {
-    const requiredMin = maxBid + 5;
-    if (initialBid < requiredMin) {
-      return c.json({ success: false, error: `Initial bid must be at least ₹${requiredMin.toLocaleString()} (highest bid ₹${maxBid.toLocaleString()} + ₹5).` }, 400);
-    }
+  if (initialBid < 99) {
+    return c.json({ success: false, error: 'Initial bid amount must be at least ₹99.' }, 400);
   }
 
   // Insert category into D1 categories master table if it does not already exist
