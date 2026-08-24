@@ -27,6 +27,17 @@ companiesRoute.post('/companies', rateLimiterMiddleware(10, 60), async (c) => {
     return c.json({ success: false, error: 'Initial bid amount must be at least ₹99.' }, 400);
   }
 
+  // Derive official 128px high-res favicon logo URL from website domain
+  let logo_url = body.logo_url ? sanitizeString(body.logo_url, 500) : null;
+  if (!logo_url) {
+    try {
+      const hostname = new URL(website_url).hostname.replace(/^www\./, '');
+      logo_url = `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`;
+    } catch {
+      logo_url = null;
+    }
+  }
+
   // Insert category into D1 categories master table if it does not already exist
   const catId = 'cat_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5);
   const catSlug = category.toLowerCase().replace(/[^a-z0-9]+/g, '-');
@@ -36,10 +47,10 @@ companiesRoute.post('/companies', rateLimiterMiddleware(10, 60), async (c) => {
     catSlug
   ).run();
 
-  // Insert company record
+  // Insert company record with auto-populated logo_url
   await c.env.DB.prepare(`
-    INSERT INTO companies (id, name, tagline, category, website_url, linkedin_url, instagram_url, current_bid, is_new, clicks)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0)
+    INSERT INTO companies (id, name, tagline, category, website_url, linkedin_url, instagram_url, logo_url, current_bid, is_new, clicks)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0)
   `).bind(
     id,
     name,
@@ -48,6 +59,7 @@ companiesRoute.post('/companies', rateLimiterMiddleware(10, 60), async (c) => {
     website_url,
     body.linkedin_url ? sanitizeString(body.linkedin_url, 500) : null,
     body.instagram_url ? sanitizeString(body.instagram_url, 500) : null,
+    logo_url,
     initialBid
   ).run();
 
@@ -59,7 +71,20 @@ companiesRoute.post('/companies', rateLimiterMiddleware(10, 60), async (c) => {
     'outbid'
   ).run();
 
-  return c.json({ success: true, companyId: id });
+  return c.json({
+    success: true,
+    company: {
+      id,
+      name,
+      tagline,
+      category,
+      website_url,
+      logo_url,
+      current_bid: initialBid,
+      is_new: 1,
+      clicks: 0,
+    },
+  });
 });
 
 export default companiesRoute;

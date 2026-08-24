@@ -18,6 +18,25 @@ async function getD1Categories(db: D1Database): Promise<string[]> {
 }
 
 /**
+ * Helper to dynamically derive official 128px high-res favicon/logo URL from website domain
+ */
+function deriveLogoUrl(websiteUrl: string, existingLogo?: string | null): string | null {
+  if (existingLogo && existingLogo.trim().length > 0) {
+    return existingLogo;
+  }
+  if (!websiteUrl || websiteUrl.trim().length === 0) {
+    return null;
+  }
+  try {
+    const formattedUrl = websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`;
+    const hostname = new URL(formattedUrl).hostname.replace(/^www\./, '');
+    return `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`;
+  } catch (err) {
+    return null;
+  }
+}
+
+/**
  * GET /api/categories
  * Returns dynamic list of category filter tags from D1 database categories master table
  */
@@ -31,21 +50,61 @@ leaderboardRoute.get('/categories', async (c) => {
 
 /**
  * GET /api/leaderboard
- * Fetches company rankings, D1 live visitor metrics, dynamic categories, and stats
+ * Fetches company rankings with full pagination (page, limit), multi-parameter filtering (category, search),
+ * sorting (bid, clicks, newest), live visitor metrics, dynamic categories, and stats.
  */
 leaderboardRoute.get('/leaderboard', async (c) => {
+  // Query Parameters
   const category = c.req.query('category');
-  let query = 'SELECT * FROM companies ORDER BY current_bid DESC, clicks DESC';
-  let stmt;
+  const search = c.req.query('search') || c.req.query('q');
+  const sort = c.req.query('sort') || 'bid';
+  const page = Math.max(1, parseInt(c.req.query('page') || '1', 10));
+  const limit = Math.min(100, Math.max(1, parseInt(c.req.query('limit') || c.req.query('pageSize') || '20', 10)));
+  const offset = (page - 1) * limit;
 
-  if (category && category !== 'All') {
-    query = 'SELECT * FROM companies WHERE LOWER(category) = LOWER(?) ORDER BY current_bid DESC, clicks DESC';
-    stmt = c.env.DB.prepare(query).bind(category);
-  } else {
-    stmt = c.env.DB.prepare(query);
+  // Build dynamic SQL conditions
+  const conditions: string[] = [];
+  const params: any[] = [];
+
+  if (category && category.trim() !== '' && category.toLowerCase() !== 'all') {
+    conditions.push('LOWER(category) = LOWER(?)');
+    params.push(category.trim());
   }
 
-  const { results } = await stmt.all<CompanyRow>();
+  if (search && search.trim() !== '') {
+    conditions.push('(LOWER(name) LIKE LOWER(?) OR LOWER(tagline) LIKE LOWER(?))');
+    const searchPattern = `%${search.trim().toLowerCase()}%`;
+    params.push(searchPattern, searchPattern);
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  // Determine sorting order
+  let orderByClause = 'ORDER BY current_bid DESC, clicks DESC';
+  if (sort === 'clicks' || sort === 'most_clicked') {
+    orderByClause = 'ORDER BY clicks DESC, current_bid DESC';
+  } else if (sort === 'newest') {
+    orderByClause = 'ORDER BY created_at DESC';
+  }
+
+  // 1. Query Total Matching Companies Count for Pagination
+  const countSql = `SELECT COUNT(*) as filteredCount FROM companies ${whereClause}`;
+  const countStmt = c.env.DB.prepare(countSql).bind(...params);
+  const filteredCountRes = await countStmt.first<{ filteredCount: number }>();
+  const totalFilteredCompanies = filteredCountRes?.filteredCount || 0;
+
+  // 2. Fetch Paginated Company Results
+  const dataSql = `SELECT * FROM companies ${whereClause} ${orderByClause} LIMIT ? OFFSET ?`;
+  const dataStmt = c.env.DB.prepare(dataSql).bind(...params, limit, offset);
+  const { results } = await dataStmt.all<CompanyRow>();
+
+  // Dynamically resolve high-res company logo URLs
+  const companies = (results || []).map((company) => ({
+    ...company,
+    logo_url: deriveLogoUrl(company.website_url, company.logo_url),
+  }));
+
+  const totalPages = Math.ceil(totalFilteredCompanies / limit) || 1;
 
   // Aggregations & Dynamic Categories from D1 Database
   const countRes = await c.env.DB.prepare('SELECT COUNT(*) as count FROM companies').first<{ count: number }>();
@@ -72,8 +131,16 @@ leaderboardRoute.get('/leaderboard', async (c) => {
 
   return c.json({
     success: true,
-    companies: results || [],
+    companies,
     categories,
+    pagination: {
+      page,
+      limit,
+      totalCompanies: totalFilteredCompanies,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+    },
     stats: {
       totalCompanies: countRes?.count || 0,
       totalBids: sumRes?.total || 0,
@@ -81,7 +148,7 @@ leaderboardRoute.get('/leaderboard', async (c) => {
       totalVisitors: totalVisitorsFormatted,
       totalUniqueVisitors: uniqueCount,
     },
-    latestActivity: latestActivity?.message || (results && results.length > 0 ? `Live rank #1 is held by ${results[0].name}` : 'Leaderboard updated live'),
+    latestActivity: latestActivity?.message || (companies && companies.length > 0 ? `Live rank #1 is held by ${companies[0].name}` : 'Leaderboard updated live'),
   });
 });
 
