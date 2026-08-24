@@ -58,10 +58,11 @@ companiesRoute.post('/companies', rateLimiterMiddleware(10, 60), async (c) => {
     catSlug
   ).run();
 
-  // Insert company record with auto-populated logo_url
+  // Insert company record with auto-populated logo_url and mandatory terms acceptance record
+  const termsAcceptedVal = body.terms_accepted === false ? 0 : 1;
   await c.env.DB.prepare(`
-    INSERT INTO companies (id, name, tagline, category, website_url, linkedin_url, instagram_url, logo_url, current_bid, is_new, clicks)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0)
+    INSERT INTO companies (id, name, tagline, category, website_url, linkedin_url, instagram_url, logo_url, current_bid, is_new, clicks, terms_accepted, terms_accepted_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, CURRENT_TIMESTAMP)
   `).bind(
     id,
     name,
@@ -71,7 +72,8 @@ companiesRoute.post('/companies', rateLimiterMiddleware(10, 60), async (c) => {
     body.linkedin_url ? sanitizeString(body.linkedin_url, 500) : null,
     body.instagram_url ? sanitizeString(body.instagram_url, 500) : null,
     logo_url,
-    initialBid
+    initialBid,
+    termsAcceptedVal
   ).run();
 
   // Log activity in Cloudflare D1

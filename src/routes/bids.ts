@@ -34,18 +34,21 @@ bidsRoute.post('/bids/outbid', rateLimiterMiddleware(20, 60), async (c) => {
     }, 400);
   }
 
-  // 3. Record bid entry in D1 bids table
+  // 3. Record bid entry in D1 bids table with terms_accepted
   const bidId = 'b_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
-  await c.env.DB.prepare('INSERT INTO bids (id, company_id, amount, payment_status) VALUES (?, ?, ?, ?)').bind(
+  const termsAcceptedVal = body.terms_accepted === false ? 0 : 1;
+  await c.env.DB.prepare('INSERT INTO bids (id, company_id, amount, payment_status, terms_accepted) VALUES (?, ?, ?, ?, ?)').bind(
     bidId,
     companyId,
     newBidAmount,
-    'completed'
+    'completed',
+    termsAcceptedVal
   ).run();
 
-  // 4. Update company current_bid and rank_change in D1 companies table
-  await c.env.DB.prepare('UPDATE companies SET current_bid = ?, rank_change = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(
+  // 4. Update company current_bid, terms_accepted, terms_accepted_at and rank_change in D1 companies table
+  await c.env.DB.prepare('UPDATE companies SET current_bid = ?, terms_accepted = ?, terms_accepted_at = CURRENT_TIMESTAMP, rank_change = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(
     newBidAmount,
+    termsAcceptedVal,
     '🚀 Outbid',
     companyId
   ).run();
