@@ -30,17 +30,19 @@ bidsRoute.post('/bids/outbid', rateLimiterMiddleware(20, 60), async (c) => {
   if (newBidAmount <= company.current_bid) {
     return c.json({
       success: false,
-      error: `New bid must be greater than current bid (₹${company.current_bid.toLocaleString('en-IN')}).`,
+      error: `New total bid must be greater than current bid (₹${company.current_bid.toLocaleString('en-IN')}).`,
     }, 400);
   }
 
-  // 3. Record bid entry in D1 bids table with terms_accepted
+  const incrementalAmount = newBidAmount - company.current_bid;
+
+  // 3. Record bid entry in D1 bids table with incremental payment amount
   const bidId = 'b_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
   const termsAcceptedVal = body.terms_accepted === false ? 0 : 1;
   await c.env.DB.prepare('INSERT INTO bids (id, company_id, amount, payment_status, terms_accepted) VALUES (?, ?, ?, ?, ?)').bind(
     bidId,
     companyId,
-    newBidAmount,
+    incrementalAmount,
     'completed',
     termsAcceptedVal
   ).run();
@@ -57,7 +59,7 @@ bidsRoute.post('/bids/outbid', rateLimiterMiddleware(20, 60), async (c) => {
   const actId = 'act_' + Date.now().toString(36);
   await c.env.DB.prepare('INSERT INTO activity_logs (id, message, event_type) VALUES (?, ?, ?)').bind(
     actId,
-    `Outbid alert! '${company.name}' boosted bid to ₹${newBidAmount.toLocaleString('en-IN')}!`,
+    `Outbid alert! '${company.name}' boosted bid by +₹${incrementalAmount.toLocaleString('en-IN')} (Total: ₹${newBidAmount.toLocaleString('en-IN')})!`,
     'outbid'
   ).run();
 
